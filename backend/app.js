@@ -98,13 +98,15 @@ function getProjectAnswer(message) {
     /\bwho developed you\b/,
     /\bdeveloper of anivision\b/,
     /\bowner of anivision\b/,
-    /\bmade anivision\b/,
-    /\bcreated anivision\b/,
+    /\bwho made anivision\b/,
+    /\bwho created anivision\b/,
     /founder kaun/,
     /kisne banaya/,
+    /developer/,
+
     /kaun banaya/
   ])) {
-    return 'The founder and creator of ANI-VISION 2.0 is Aniket Singh.';
+    return 'The founder and developer of ANI-VISION is Aniket Singh.';
   }
 
   // ----------------------------------------
