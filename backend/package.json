@@ -1,0 +1,24 @@
+{
+  "name": "anivision",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ANIVISION Gemini-powered voice and vision assistant",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node --watch app.js",
+    "check": "node --check app.js",
+    "test": "npm run check"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^4.22.3"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
