@@ -7,11 +7,15 @@
   <meta name="description" content="ANIVISION — your personal AI voice and vision assistant.">
   <title>ANIVISION — AI Assistant</title>
   <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="#chat" aria-label="ANIVISION home"><span class="brand-mark">A</span><span>ANI<span class="brand-accent">VISION</span><small>SEE · SPEAK · UNDERSTAND</small></span></a>
+      <a class="brand" href="#chat" aria-label="ANIVISION home">
+        <span class="brand-mark">A</span>
+        <span>ANI<span class="brand-accent">VISION</span><small>SEE · SPEAK · UNDERSTAND</small></span>
+      </a>
       <div class="side-label">WORKSPACE</div>
       <nav class="nav-list" aria-label="Main navigation">
         <button class="nav-btn active" data-view="chat"><span>◈</span> AI Chat</button>
@@ -21,7 +25,7 @@
       </nav>
       <div class="sidebar-bottom">
         <div class="api-indicator"><i id="apiDot"></i><span id="apiLabel">Checking API…</span></div>
-        <p>Aniket personal assistant</p>
+        <p>Personal AI assistant</p>
         <span class="version">ANIVISION · FINAL BUILD</span>
       </div>
     </aside>
@@ -29,43 +33,125 @@
     <main class="main-area">
       <header class="topbar">
         <div><div class="eyebrow">PERSONAL AI WORKSPACE</div><h1 id="pageTitle">AI Chat</h1></div>
-        <div class="top-actions"><span class="status-pill"><i></i> <span id="topStatus">Connecting</span></span><button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">☼</button></div>
+        <div class="top-actions">
+          <span class="status-pill"><i></i><span id="topStatus">Connecting</span></span>
+          <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">☼</button>
+        </div>
       </header>
 
       <section class="view active" id="view-chat">
-        <div class="welcome" id="welcomePanel"><div class="orb"><span>AI</span></div><p class="eyebrow">YOUR ASSISTANT IS READY</p><h2>What can I help you <em>understand?</em></h2><p class="muted">Ask anything, speak naturally, or say <b>“Hey Anyman”</b> after enabling the microphone.</p>
-          <div class="suggestions"><button class="suggestion" data-prompt="Explain how artificial intelligence works in simple words.">Explain AI simply <span>↗</span></button><button class="suggestion" data-prompt="Give me three creative ideas for today.">Give me creative ideas <span>↗</span></button><button class="suggestion" data-prompt="What can you identify in an image?">What can you see? <span>↗</span></button></div>
+        <div class="welcome" id="welcomePanel">
+          <div class="orb"><span>AI</span></div>
+          <p class="eyebrow">YOUR ASSISTANT IS READY</p>
+          <h2>What can I help you <em>understand?</em></h2>
+          <p class="muted">Ask anything, speak naturally, or say “Hey Anyman” after enabling the microphone.</p>
+          <div class="suggestions">
+            <button class="suggestion" data-prompt="Explain how artificial intelligence works in simple words.">Explain AI simply <span>↗</span></button>
+            <button class="suggestion" data-prompt="Give me three creative ideas for today.">Give me creative ideas <span>↗</span></button>
+            <button class="suggestion" data-prompt="What can you identify in an image?">What can you see? <span>↗</span></button>
+          </div>
         </div>
         <div class="chat-messages" id="chatMessages" aria-live="polite"></div>
         <div class="composer-wrap">
-          <div class="composer"><textarea id="chatInput" rows="1" placeholder="Message ANIVISION…" aria-label="Message ANIVISION"></textarea><div class="composer-actions"><button class="round-btn" id="voiceInputBtn" title="Speak a message" aria-label="Speak a message">🎙</button><button class="send-btn" id="sendBtn" aria-label="Send message">➤</button></div></div>
-          <div class="composer-foot"><button class="wake-btn" id="wakeBtn"><span class="pulse-dot"></span> Enable “Hey Anyman”</button><span>Ani-vision AI can make mistakes. Check important information.</span></div>
+          <div class="composer">
+            <textarea id="chatInput" rows="1" placeholder="Message ANIVISION…" aria-label="Message ANIVISION"></textarea>
+            <div class="composer-actions">
+              <button class="round-btn" id="voiceInputBtn" title="Speak a message" aria-label="Speak a message">🎙</button>
+              <button class="send-btn" id="sendBtn" aria-label="Send message">➤</button>
+            </div>
+          </div>
+          <div class="composer-foot">
+            <button class="wake-btn" id="wakeBtn"><span class="pulse-dot"></span> Enable “Hey Anyman”</button>
+            <span>ANIVISION can make mistakes. Check important information.</span>
+          </div>
         </div>
       </section>
 
       <section class="view" id="view-vision">
-        <div class="section-intro"><div class="section-icon">▧</div><div><h2>Image Analysis</h2><p class="muted">Upload a photo and ask Ani-vision to identify visible objects.</p></div></div>
+        <div class="section-intro">
+          <div class="section-icon">▧</div>
+          <div><h2>Image Analysis</h2><p class="muted">Upload a photo and ask ANIVISION to identify visible objects.</p></div>
+        </div>
         <div class="vision-grid">
-          <div class="panel upload-panel"><label class="upload-zone" id="dropZone" for="imageInput"><span class="upload-icon">＋</span><strong>Choose an image</strong><span>JPG, PNG or WebP · up to 7 MB</span><span class="browse-link">Browse files</span></label><input type="file" id="imageInput" accept="image/png,image/jpeg,image/webp" hidden><div class="preview-wrap" id="previewWrap" hidden><img id="imagePreview" alt="Selected image preview"><button id="removeImageBtn" class="remove-btn" aria-label="Remove image">×</button></div>
-            <label class="field-label" for="visionPrompt">What should I look for? <span>OPTIONAL</span></label><textarea class="vision-prompt" id="visionPrompt" rows="3" placeholder="Identify the objects and describe what you can see…"></textarea><button class="primary-btn full" id="analyzeBtn" disabled>Analyze image <span>→</span></button>
+          <div class="panel upload-panel">
+            <label class="upload-zone" id="dropZone" for="imageInput">
+              <span class="upload-icon">＋</span><strong>Choose an image</strong>
+              <span>JPG, PNG or WebP · up to 7 MB</span><span class="browse-link">Browse files</span>
+            </label>
+            <input type="file" id="imageInput" accept="image/png,image/jpeg,image/webp" hidden>
+            <div class="preview-wrap" id="previewWrap" hidden>
+              <img id="imagePreview" alt="Selected image preview">
+              <button id="removeImageBtn" class="remove-btn" aria-label="Remove image">×</button>
+            </div>
+            <label class="field-label" for="visionPrompt">What should I look for? <span>OPTIONAL</span></label>
+            <textarea class="vision-prompt" id="visionPrompt" rows="3" placeholder="Identify the objects and describe what you can see…"></textarea>
+            <button class="primary-btn full" id="analyzeBtn" disabled>Analyze image <span>→</span></button>
           </div>
-          <div class="panel result-panel"><div class="panel-heading"><div><span class="eyebrow">GEMINI VISION</span><h3>Analysis result</h3></div><span class="result-tag" id="visionTag">WAITING</span></div><div class="result-content" id="visionResult"><div class="empty-visual">◉</div><p>Your image analysis will appear here.</p><small>Upload an image, then select Analyze image.</small></div><button class="speak-result" id="speakVisionBtn" disabled>🔊 Listen to result</button></div>
+          <div class="panel result-panel">
+            <div class="panel-heading"><div><span class="eyebrow">ANIVISION VISION</span><h3>Analysis result</h3></div><span class="result-tag" id="visionTag">WAITING</span></div>
+            <div class="result-content" id="visionResult"><div class="empty-visual">◉</div><p>Your image analysis will appear here.</p><small>Upload an image, then select Analyze image.</small></div>
+            <button class="speak-result" id="speakVisionBtn" disabled>🔊 Listen to result</button>
+          </div>
         </div>
       </section>
 
       <section class="view" id="view-camera">
-        <div class="section-intro"><div class="section-icon">◎</div><div><h2>Live Camera</h2><p class="muted">Show an object to your camera, capture a frame, and ask Ani-vision to identify it.</p></div></div>
-        <div class="camera-layout"><div class="panel camera-panel"><div class="camera-stage"><video id="cameraVideo" autoplay muted playsinline></video><div class="camera-placeholder" id="cameraPlaceholder"><span>◎</span><b>Camera is off</b><small>Allow camera access when your browser asks.</small></div><div class="camera-live" id="cameraLive" hidden><i></i> LIVE PREVIEW</div></div><div class="camera-controls"><button class="primary-btn" id="startCameraBtn">Start camera</button><button class="secondary-btn" id="captureBtn" disabled>Capture & identify</button><button class="secondary-btn" id="stopCameraBtn" disabled>Stop</button></div></div><div class="panel camera-result"><div class="panel-heading"><div><span class="eyebrow">OBJECT RECOGNITION</span><h3>What am I looking at?</h3></div><span class="result-tag" id="cameraTag">WAITING</span></div><div id="cameraResult" class="result-content"><div class="empty-visual">⌖</div><p>Camera analysis will appear here.</p><small>Point your camera at an object and press Capture & identify.</small></div><button class="speak-result" id="speakCameraBtn" disabled>🔊 Listen to result</button></div></div>
+        <div class="section-intro">
+          <div class="section-icon">◎</div>
+          <div><h2>Live Camera</h2><p class="muted">Show an object to your camera, capture a frame, and ask ANIVISION to identify it.</p></div>
+        </div>
+        <div class="camera-layout">
+          <div class="panel camera-panel">
+            <div class="camera-stage">
+              <video id="cameraVideo" autoplay muted playsinline></video>
+              <div class="camera-placeholder" id="cameraPlaceholder"><span>◎</span><b>Camera is off</b><small>Allow camera access when your browser asks.</small></div>
+              <div class="camera-live" id="cameraLive" hidden><i></i> LIVE PREVIEW</div>
+            </div>
+            <div class="camera-controls">
+              <button class="primary-btn" id="startCameraBtn">Start camera</button>
+              <button class="secondary-btn" id="captureBtn" disabled>Capture &amp; identify</button>
+              <button class="secondary-btn" id="stopCameraBtn" disabled>Stop</button>
+            </div>
+            <p class="camera-error" id="cameraError" role="alert"></p>
+          </div>
+          <div class="panel camera-result">
+            <div class="panel-heading"><div><span class="eyebrow">OBJECT RECOGNITION</span><h3>What am I looking at?</h3></div><span class="result-tag" id="cameraTag">WAITING</span></div>
+            <div id="cameraResult" class="result-content"><div class="empty-visual">⌖</div><p>Camera analysis will appear here.</p><small>Point your camera at an object and press Capture &amp; identify.</small></div>
+            <button class="speak-result" id="speakCameraBtn" disabled>🔊 Listen to result</button>
+          </div>
+        </div>
       </section>
 
       <section class="view" id="view-settings">
-        <div class="section-intro"><div class="section-icon">⚙</div><div><h2>Settings</h2><p class="muted">Check the backend connection and browser voice support.</p></div></div>
-        <div class="settings-grid"><div class="panel setting-card"><span class="eyebrow">AI CONNECTION</span><h3>Gemini API</h3><div class="setting-row"><span>Backend server</span><b id="backendState">Checking…</b></div><div class="setting-row"><span>Gemini configuration</span><b id="geminiState">Checking…</b></div><p class="setting-note">Your API key stays on the backend in <code>backend/.env</code>. It is never sent to frontend JavaScript.</p><button class="secondary-btn" id="refreshStatusBtn">Refresh connection</button></div><div class="panel setting-card"><span class="eyebrow">VOICE & PRIVACY</span><h3>Browser capabilities</h3><div class="setting-row"><span>Speech recognition</span><b id="recognitionState">Checking…</b></div><div class="setting-row"><span>Speech output</span><b id="speechState">Checking…</b></div><p class="setting-note">Microphone and camera are activated only after you press their controls. “Hey Aniket” works while this page is open and listening; it is not an always-on background service.</p><label class="field-label" for="speechLanguage">Voice language</label><select id="speechLanguage" class="select-field"><option value="en-IN">English (India)</option><option value="hi-IN">Hindi (India)</option><option value="en-US">English (US)</option></select></div></div>
+        <div class="section-intro">
+          <div class="section-icon">⚙</div>
+          <div><h2>Settings</h2><p class="muted">Check the backend connection and browser voice support.</p></div>
+        </div>
+        <div class="settings-grid">
+          <div class="panel setting-card">
+            <span class="eyebrow">AI CONNECTION</span><h3>ANIVISION AI</h3>
+            <div class="setting-row"><span>Backend server</span><b id="backendState">Checking…</b></div>
+            <div class="setting-row"><span>AI configuration</span><b id="aiState">Checking…</b></div>
+            <p class="setting-note">Your API key stays on the backend in <code>backend/.env</code>. It is never sent to frontend JavaScript.</p>
+            <button class="secondary-btn" id="refreshStatusBtn">Refresh connection</button>
+          </div>
+          <div class="panel setting-card">
+            <span class="eyebrow">VOICE &amp; PRIVACY</span><h3>Browser capabilities</h3>
+            <div class="setting-row"><span>Speech recognition</span><b id="recognitionState">Checking…</b></div>
+            <div class="setting-row"><span>Speech output</span><b id="speechState">Checking…</b></div>
+            <p class="setting-note">Microphone and camera are activated only after you press their controls. “Hey Anyman” works while this page is open and listening.</p>
+            <label class="field-label" for="speechLanguage">Voice language</label>
+            <select id="speechLanguage" class="select-field">
+              <option value="en-IN">English (India)</option>
+              <option value="hi-IN">Hindi (India)</option>
+              <option value="en-US">English (US)</option>
+            </select>
+          </div>
+        </div>
       </section>
       <footer class="main-footer">ANIVISION <span>·</span> Built for seeing, speaking and understanding.</footer>
     </main>
   </div>
   <div class="toast" id="toast" role="status"></div>
-  <script src="script.js" defer></script>
 </body>
 </html>

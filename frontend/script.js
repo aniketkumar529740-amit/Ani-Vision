@@ -1,915 +1,549 @@
-
 'use strict';
 
-// ==========================================
-// 1. GLOBAL STATE
-// ==========================================
-
 const $ = (id) => document.getElementById(id);
-
+const views = ['chat', 'vision', 'camera', 'settings'];
 const state = {
-    history: [],
-    imageData: null,
-    cameraStream: null,
-    recognition: null,
-    wakeListening: false,
-    busy: false,
-    lastVision: '',
-    lastCamera: '',
-    speechLanguage: localStorage.getItem('ani-speech-language') || 'en-IN'
+  history: [],
+  imageData: null,
+  cameraStream: null,
+  recognition: null,
+  wakeListening: false,
+  busy: false,
+  lastVision: '',
+  lastCamera: '',
+  speechLanguage: localStorage.getItem('ani-speech-language') || 'en-IN',
+  activeSpeechButton: null
 };
 
-const views = ['chat', 'vision', 'camera', 'settings'];
-
-
-// ==========================================
-// 2. TOAST NOTIFICATION
-// ==========================================
-
 function toast(message) {
-    const el = $('toast');
-
-    el.textContent = message;
-    el.classList.add('show');
-
-    clearTimeout(toast.timer);
-
-    toast.timer = setTimeout(() => {
-        el.classList.remove('show');
-    }, 3200);
+  const el = $('toast');
+  el.textContent = message;
+  el.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => el.classList.remove('show'), 3200);
 }
-
-
-// ==========================================
-// 3. PAGE NAVIGATION
-// ==========================================
 
 function setView(name) {
-    views.forEach((v) => {
-        $('view-' + v).classList.toggle('active', v === name);
-    });
-
-    document.querySelectorAll('.nav-btn').forEach((b) => {
-        b.classList.toggle('active', b.dataset.view === name);
-    });
-
-    $('pageTitle').textContent = ({
-        chat: 'AI Chat',
-        vision: 'Image Analysis',
-        camera: 'Live Camera',
-        settings: 'Settings'
-    })[name];
-
-    if (name === 'camera' && !state.cameraStream) {
-        // Camera is not started automatically.
-    }
+  views.forEach((view) => $('view-' + view).classList.toggle('active', view === name));
+  document.querySelectorAll('.nav-btn').forEach((button) => {
+    button.classList.toggle('active', button.dataset.view === name);
+  });
+  $('pageTitle').textContent = {
+    chat: 'AI Chat',
+    vision: 'Image Analysis',
+    camera: 'Live Camera',
+    settings: 'Settings'
+  }[name] || 'ANIVISION';
 }
 
-document.querySelectorAll('.nav-btn').forEach((b) => {
-    b.addEventListener('click', () => {
-        setView(b.dataset.view);
-    });
+document.querySelectorAll('.nav-btn').forEach((button) => {
+  button.addEventListener('click', () => setView(button.dataset.view));
 });
 
-
-// ==========================================
-// 4. CHAT SUGGESTIONS
-// ==========================================
-
-document.querySelectorAll('.suggestion').forEach((b) => {
-    b.addEventListener('click', () => {
-        $('chatInput').value = b.dataset.prompt;
-        sendMessage();
-    });
+document.querySelectorAll('.suggestion').forEach((button) => {
+  button.addEventListener('click', () => {
+    $('chatInput').value = button.dataset.prompt;
+    sendMessage();
+  });
 });
-
-
-// ==========================================
-// 5. THEME MANAGEMENT
-// ==========================================
 
 $('themeBtn').addEventListener('click', () => {
-    document.body.classList.toggle('light');
-
-    localStorage.setItem(
-        'ani-theme',
-        document.body.classList.contains('light') ? 'light' : 'dark'
-    );
+  document.body.classList.toggle('light');
+  localStorage.setItem('ani-theme', document.body.classList.contains('light') ? 'light' : 'dark');
 });
-
-if (localStorage.getItem('ani-theme') === 'light') {
-    document.body.classList.add('light');
-}
-
-
-// ==========================================
-// 6. SPEECH LANGUAGE SETTINGS
-// ==========================================
+if (localStorage.getItem('ani-theme') === 'light') document.body.classList.add('light');
 
 $('speechLanguage').value = state.speechLanguage;
-
-$('speechLanguage').addEventListener('change', (e) => {
-    state.speechLanguage = e.target.value;
-
-    localStorage.setItem(
-        'ani-speech-language',
-        state.speechLanguage
-    );
-
-    if (state.wakeListening) {
-        stopWake();
-        startWake();
-    }
+$('speechLanguage').addEventListener('change', (event) => {
+  state.speechLanguage = event.target.value;
+  localStorage.setItem('ani-speech-language', state.speechLanguage);
+  if (state.wakeListening) {
+    stopWake();
+    startWake();
+  }
 });
-
-
-// ==========================================
-// 7. API REQUEST HANDLER
-// ==========================================
 
 async function api(path, body) {
-    const response = await fetch(path, {
-        method: body ? 'POST' : 'GET',
-
-        headers: body
-            ? { 'Content-Type': 'application/json' }
-            : {},
-
-        body: body
-            ? JSON.stringify(body)
-            : undefined
-    });
-
-    let data;
-
-    try {
-        data = await response.json();
-    } catch {
-        throw new Error('The server returned an unreadable response.');
-    }
-
-    if (!response.ok) {
-        throw new Error(
-            data.error || `Request failed (${response.status})`
-        );
-    }
-
-    return data;
+  const response = await fetch(path, {
+    method: body ? 'POST' : 'GET',
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error('The server returned an unreadable response.');
+  }
+  if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+  return data;
 }
-
-
-// ==========================================
-// 8. BACKEND & API STATUS
-// ==========================================
 
 async function refreshStatus() {
-    try {
-        const d = await api('/api/health');
-        const c = await api('/api/config');
+  try {
+    const health = await api('/api/health');
+    const config = await api('/api/config');
+    const configured = Boolean(config.geminiConfigured);
 
-        $('apiDot').classList.toggle(
-            'online',
-            !!c.geminiConfigured
-        );
+    $('apiDot').classList.toggle('online', configured);
+    $('apiLabel').textContent = configured ? 'ANIVISION connected' : 'AI API not configured';
+    $('topStatus').textContent = configured ? 'ANIVISION ready' : 'API key required';
+    $('topStatus').previousElementSibling.classList.toggle('online', configured);
+    $('backendState').textContent = health.ok ? 'Online' : 'Offline';
+    $('aiState').textContent = configured ? 'Configured' : 'Not configured';
+    $('aiState').style.color = configured ? '#55d8a4' : '#e5b45d';
+  } catch (error) {
+    $('apiLabel').textContent = 'Backend unavailable';
+    $('topStatus').textContent = 'Offline';
+    $('backendState').textContent = 'Offline';
+    $('aiState').textContent = 'Unavailable';
+  }
 
-        $('apiLabel').textContent = c.geminiConfigured
-            ? 'Gemini connected'
-            : 'Gemini API not configured';
-
-        $('topStatus').textContent = c.geminiConfigured
-            ? 'Gemini ready'
-            : 'API key required';
-
-        $('topStatus').previousElementSibling.classList.toggle(
-            'online',
-            !!c.geminiConfigured
-        );
-
-        $('backendState').textContent = d.ok
-            ? 'Online'
-            : 'Offline';
-
-        $('geminiState').textContent = c.geminiConfigured
-            ? 'Configured'
-            : 'Not configured';
-
-        $('geminiState').style.color = c.geminiConfigured
-            ? '#55d8a4'
-            : '#e5b45d';
-
-    } catch (e) {
-        $('apiLabel').textContent = 'Backend unavailable';
-        $('topStatus').textContent = 'Offline';
-        $('backendState').textContent = 'Offline';
-        $('geminiState').textContent = 'Unavailable';
-    }
-
-    $('recognitionState').textContent =
-        ('SpeechRecognition' in window ||
-        'webkitSpeechRecognition' in window)
-            ? 'Supported'
-            : 'Not supported';
-
-    $('speechState').textContent =
-        'speechSynthesis' in window
-            ? 'Supported'
-            : 'Not supported';
+  $('recognitionState').textContent =
+    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) ? 'Supported' : 'Not supported';
+  $('speechState').textContent = 'speechSynthesis' in window ? 'Supported' : 'Not supported';
 }
 
+function resetSpeechButton(button) {
+  if (!button) return;
+  button.classList.remove('is-speaking');
+  button.textContent = button.dataset.defaultLabel || '🔊 Listen';
+  button.setAttribute('aria-pressed', 'false');
+  if (state.activeSpeechButton === button) state.activeSpeechButton = null;
+}
 
-// ==========================================
-// 9. CHAT MESSAGE DISPLAY
-// ==========================================
+function stopSpeech() {
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  resetSpeechButton(state.activeSpeechButton);
+}
+
+function speakText(text, button) {
+  if (!('speechSynthesis' in window)) {
+    toast('Speech output is not supported in this browser.');
+    return;
+  }
+  if (!text || !text.trim()) return;
+
+  if (state.activeSpeechButton === button && window.speechSynthesis.speaking) {
+    stopSpeech();
+    return;
+  }
+
+  stopSpeech();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = state.speechLanguage;
+  utterance.rate = 1;
+  state.activeSpeechButton = button;
+
+  if (button) {
+    button.dataset.defaultLabel ||= button.textContent;
+    button.textContent = '■ Stop';
+    button.classList.add('is-speaking');
+    button.setAttribute('aria-pressed', 'true');
+  }
+
+  utterance.onend = () => resetSpeechButton(button);
+  utterance.onerror = () => resetSpeechButton(button);
+  window.speechSynthesis.speak(utterance);
+}
 
 function addMessage(role, text) {
-    $('welcomePanel').hidden = true;
+  $('welcomePanel').hidden = true;
+  const row = document.createElement('div');
+  row.className = 'message ' + role;
 
-    const row = document.createElement('div');
-    row.className = 'message ' + role;
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar';
+  avatar.textContent = role === 'assistant' ? 'AI' : 'YOU';
 
-    const avatar = document.createElement('div');
-    avatar.className = 'avatar';
+  const content = document.createElement('div');
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text;
+  content.appendChild(bubble);
 
-    avatar.textContent = role === 'assistant'
-        ? 'AI'
-        : 'YOU';
+  if (role === 'assistant') {
+    const tools = document.createElement('div');
+    tools.className = 'message-tools';
+    const speak = document.createElement('button');
+    speak.className = 'speak-btn';
+    speak.textContent = '🔊 Listen';
+    speak.dataset.defaultLabel = '🔊 Listen';
+    speak.addEventListener('click', () => speakText(text, speak));
+    tools.appendChild(speak);
+    content.appendChild(tools);
+  }
 
-    const content = document.createElement('div');
-
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = text;
-
-    content.appendChild(bubble);
-
-    if (role === 'assistant') {
-        const tools = document.createElement('div');
-        tools.className = 'message-tools';
-
-        const speak = document.createElement('button');
-        speak.className = 'speak-btn';
-        speak.textContent = '🔊 Listen';
-
-        speak.addEventListener('click', () => {
-            speakText(text);
-        });
-
-        tools.appendChild(speak);
-        content.appendChild(tools);
-    }
-
-    row.append(avatar, content);
-
-    $('chatMessages').appendChild(row);
-
-    $('chatMessages').scrollTop =
-        $('chatMessages').scrollHeight;
+  row.append(avatar, content);
+  $('chatMessages').appendChild(row);
+  $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
 }
-
-
-// ==========================================
-// 10. CHAT LOADING STATE
-// ==========================================
 
 function setBusy(value) {
-    state.busy = value;
-
-    $('sendBtn').disabled = value;
-
-    $('sendBtn').textContent = value
-        ? '…'
-        : '➤';
+  state.busy = value;
+  $('sendBtn').disabled = value;
+  $('sendBtn').textContent = value ? '…' : '➤';
 }
-
-
-// ==========================================
-// 11. SEND CHAT MESSAGE
-// ==========================================
 
 async function sendMessage(text) {
-    if (state.busy) return;
+  if (state.busy) return;
+  const message = (text ?? $('chatInput').value).trim();
+  if (!message) return;
 
-    const message = (text ?? $('chatInput').value).trim();
+  stopSpeech();
+  $('chatInput').value = '';
+  addMessage('user', message);
+  state.history.push({ role: 'user', content: message });
+  setBusy(true);
 
-    if (!message) return;
+  const pending = document.createElement('div');
+  pending.className = 'message assistant';
+  pending.innerHTML = '<div class="avatar">AI</div><div class="bubble">Thinking…</div>';
+  $('chatMessages').appendChild(pending);
+  $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
 
-    $('chatInput').value = '';
-
-    addMessage('user', message);
-
-    state.history.push({
-        role: 'user',
-        content: message
+  try {
+    const result = await api('/api/chat', {
+      message,
+      history: state.history.slice(-12, -1)
     });
-
-    setBusy(true);
-
-    const pending = document.createElement('div');
-
-    pending.className = 'message assistant';
-
-    pending.innerHTML =
-        '<div class="avatar">AI</div><div class="bubble">Thinking…</div>';
-
-    $('chatMessages').appendChild(pending);
-
-    $('chatMessages').scrollTop =
-        $('chatMessages').scrollHeight;
-
-    try {
-        const result = await api('/api/chat', {
-            message,
-            history: state.history.slice(-12, -1)
-        });
-
-        pending.remove();
-
-        addMessage('assistant', result.text);
-
-        state.history.push({
-            role: 'assistant',
-            content: result.text
-        });
-
-        if (state.history.length > 40) {
-            state.history = state.history.slice(-40);
-        }
-
-    } catch (e) {
-        pending.remove();
-
-        addMessage(
-            'assistant',
-            `I couldn't complete that request. ${e.message}`
-        );
-
-        toast(e.message);
-
-    } finally {
-        setBusy(false);
-    }
+    pending.remove();
+    addMessage('assistant', result.text);
+    state.history.push({ role: 'assistant', content: result.text });
+    if (state.history.length > 40) state.history = state.history.slice(-40);
+  } catch (error) {
+    pending.remove();
+    addMessage('assistant', `I couldn't complete that request. ${error.message}`);
+    toast(error.message);
+  } finally {
+    setBusy(false);
+  }
 }
 
-
-// ==========================================
-// 12. CHAT EVENT LISTENERS
-// ==========================================
-
-$('sendBtn').addEventListener('click', () => {
+$('sendBtn').addEventListener('click', () => sendMessage());
+$('chatInput').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
     sendMessage();
+  }
 });
-
-$('chatInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
+$('chatInput').addEventListener('input', (event) => {
+  event.target.style.height = 'auto';
+  event.target.style.height = Math.min(event.target.scrollHeight, 130) + 'px';
 });
-
-$('chatInput').addEventListener('input', (e) => {
-    e.target.style.height = 'auto';
-
-    e.target.style.height =
-        Math.min(e.target.scrollHeight, 130) + 'px';
-});
-
-
-// ==========================================
-// 13. TEXT TO SPEECH
-// ==========================================
-
-function speakText(text) {
-    if (!('speechSynthesis' in window)) {
-        toast('Speech output is not supported in this browser.');
-        return;
-    }
-
-    speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-
-    utterance.lang = state.speechLanguage;
-    utterance.rate = 1;
-
-    speechSynthesis.speak(utterance);
-}
-
-
-// ==========================================
-// 14. SPEECH RECOGNITION
-// ==========================================
 
 function makeRecognition() {
-    const SR =
-        window.SpeechRecognition ||
-        window.webkitSpeechRecognition;
-
-    if (!SR) return null;
-
-    const r = new SR();
-
-    r.lang = state.speechLanguage;
-    r.interimResults = false;
-    r.maxAlternatives = 1;
-
-    return r;
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return null;
+  const recognition = new SpeechRecognition();
+  recognition.lang = state.speechLanguage;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  return recognition;
 }
-
-
-// ==========================================
-// 15. HEY ANYMAN WAKE WORD
-// ==========================================
 
 function startWake() {
-    if (state.wakeListening) return;
+  if (state.wakeListening) return;
+  const recognition = makeRecognition();
+  if (!recognition) {
+    toast('Speech recognition is not supported. Try Chrome or Edge.');
+    return;
+  }
 
-    const r = makeRecognition();
+  recognition.continuous = true;
+  state.recognition = recognition;
+  state.wakeListening = true;
+  $('wakeBtn').classList.add('listening');
+  $('wakeBtn').innerHTML = '<span class="pulse-dot"></span> Listening for “Hey Anyman” · Stop';
 
-    if (!r) {
-        toast('Speech recognition is not supported. Try Chrome or Edge.');
-        return;
+  recognition.onresult = (event) => {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (!event.results[i].isFinal) continue;
+      const heard = event.results[i][0].transcript.trim();
+      const match = heard.match(/hey\s+(?:anyvision|anivision|anyman|aniket)/i);
+      if (!match) continue;
+
+      setView('chat');
+      const rest = heard.slice(match[0].length).trim().replace(/^[,.:;\s]+/, '');
+      toast('Hey Anyman is listening.');
+      if (rest) sendMessage(rest);
+      else $('chatInput').focus();
     }
+  };
 
-    r.continuous = true;
-
-    state.recognition = r;
-    state.wakeListening = true;
-
-    $('wakeBtn').classList.add('listening');
-
-    $('wakeBtn').innerHTML =
-        '<span class="pulse-dot"></span> Listening for “Hey Anyman” · Stop';
-
-    r.onresult = (e) => {
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-            if (!e.results[i].isFinal) continue;
-
-            const heard = e.results[i][0].transcript.trim();
-
-            const lower = heard.toLowerCase();
-
-            const match = lower.match(
-                /hey\s+(ani\s*man|anyman|an(i)?man)/i
-            );
-
-            if (match) {
-                setView('chat');
-
-                const rest = heard
-                    .slice(match[0].length)
-                    .trim()
-                    .replace(/^[,.:;\s]+/, '');
-
-                toast('Hey Anyman is listening.');
-
-                if (rest) {
-                    sendMessage(rest);
-                } else {
-                    $('chatInput').focus();
-                }
-            }
-        }
-    };
-
-    r.onerror = (e) => {
-        if (
-            e.error === 'not-allowed' ||
-            e.error === 'service-not-allowed'
-        ) {
-            stopWake();
-
-            toast(
-                'Microphone permission was denied. Allow it in browser settings.'
-            );
-
-        } else if (e.error !== 'no-speech') {
-            toast(`Voice error: ${e.error}`);
-        }
-    };
-
-    r.onend = () => {
-        if (state.wakeListening) {
-            try {
-                r.start();
-            } catch {
-                // Recognition could not restart.
-            }
-        }
-    };
-
-    try {
-        r.start();
-    } catch (e) {
-        stopWake();
-
-        toast('Could not start microphone. Please try again.');
+  recognition.onerror = (event) => {
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      stopWake();
+      toast('Microphone permission was denied. Allow it in browser settings.');
+    } else if (event.error !== 'no-speech') {
+      toast(`Voice error: ${event.error}`);
     }
+  };
+
+  recognition.onend = () => {
+    if (state.wakeListening) {
+      try { recognition.start(); } catch { /* Browser is restarting recognition. */ }
+    }
+  };
+
+  try {
+    recognition.start();
+  } catch {
+    stopWake();
+    toast('Could not start microphone. Please try again.');
+  }
 }
 
-
-// ==========================================
-// 16. STOP WAKE WORD
-// ==========================================
-
 function stopWake() {
-    state.wakeListening = false;
-
-    if (state.recognition) {
-        state.recognition.onend = null;
-
-        state.recognition.stop();
-
-        state.recognition = null;
-    }
-
-    $('wakeBtn').classList.remove('listening');
-
-    $('wakeBtn').innerHTML =
-        '<span class="pulse-dot"></span> Enable “Hey Anyman”';
+  state.wakeListening = false;
+  if (state.recognition) {
+    state.recognition.onend = null;
+    state.recognition.stop();
+    state.recognition = null;
+  }
+  $('wakeBtn').classList.remove('listening');
+  $('wakeBtn').innerHTML = '<span class="pulse-dot"></span> Enable “Hey Anyman”';
 }
 
 $('wakeBtn').addEventListener('click', () => {
-    state.wakeListening
-        ? stopWake()
-        : startWake();
+  state.wakeListening ? stopWake() : startWake();
 });
-
-
-// ==========================================
-// 17. VOICE INPUT
-// ==========================================
 
 $('voiceInputBtn').addEventListener('click', () => {
-    if (
-        !(
-            'SpeechRecognition' in window ||
-            'webkitSpeechRecognition' in window
-        )
-    ) {
-        toast('Speech recognition is not supported in this browser.');
-        return;
-    }
-
-    const r = makeRecognition();
-
-    if (!r) return;
-
-    r.onresult = (e) => {
-        const t = e.results[0][0].transcript;
-
-        $('chatInput').value = t;
-
-        sendMessage(t);
-    };
-
-    r.onerror = (e) => {
-        toast(`Microphone error: ${e.error}`);
-    };
-
-    try {
-        r.start();
-
-        toast('Listening… speak now.');
-
-    } catch {
-        toast('Microphone is already active.');
-    }
+  const recognition = makeRecognition();
+  if (!recognition) {
+    toast('Speech recognition is not supported in this browser.');
+    return;
+  }
+  recognition.onresult = (event) => {
+    const spokenText = event.results[0][0].transcript;
+    $('chatInput').value = spokenText;
+    sendMessage(spokenText);
+  };
+  recognition.onerror = (event) => toast(`Microphone error: ${event.error}`);
+  try {
+    recognition.start();
+    toast('Listening… speak now.');
+  } catch {
+    toast('Microphone is already active.');
+  }
 });
-
-
-// ==========================================
-// 18. IMAGE TO DATA URL
-// ==========================================
 
 function fileToDataUrl(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-
-        reader.onload = () => resolve(reader.result);
-
-        reader.onerror = reject;
-
-        reader.readAsDataURL(file);
-    });
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
-
-
-// ==========================================
-// 19. IMAGE OPTIMIZATION
-// ==========================================
 
 async function optimizeImage(file) {
-    const data = await fileToDataUrl(file);
+  const data = await fileToDataUrl(file);
+  const image = new Image();
+  image.src = data;
+  await new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = reject;
+  });
 
-    const img = new Image();
-
-    img.src = data;
-
-    await new Promise((res, rej) => {
-        img.onload = res;
-        img.onerror = rej;
-    });
-
-    const scale = Math.min(
-        1,
-        1600 / Math.max(img.width, img.height)
-    );
-
-    const canvas = document.createElement('canvas');
-
-    canvas.width = Math.round(img.width * scale);
-    canvas.height = Math.round(img.height * scale);
-
-    canvas.getContext('2d').drawImage(
-        img,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    return canvas.toDataURL('image/jpeg', 0.82);
+  const scale = Math.min(1, 1600 / Math.max(image.width, image.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(image.width * scale);
+  canvas.height = Math.round(image.height * scale);
+  canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.82);
 }
 
+$('imageInput').addEventListener('change', async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+    toast('Please choose a JPG, PNG or WebP image.');
+    return;
+  }
+  if (file.size > 7 * 1024 * 1024) {
+    toast('Image must be smaller than 7 MB.');
+    return;
+  }
 
-// ==========================================
-// 20. IMAGE UPLOAD
-// ==========================================
-
-$('imageInput').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-
-    if (!file) return;
-
-    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
-        toast('Please choose a JPG, PNG or WebP image.');
-        return;
-    }
-
-    if (file.size > 7 * 1024 * 1024) {
-        toast('Image must be smaller than 7 MB.');
-        return;
-    }
-
-    try {
-        state.imageData = await optimizeImage(file);
-
-        $('imagePreview').src = state.imageData;
-
-        $('previewWrap').hidden = false;
-        $('dropZone').hidden = true;
-
-        $('analyzeBtn').disabled = false;
-
-        $('visionResult').innerHTML =
-            '<p>Image ready for analysis.</p><small>Select Analyze image to send it to Gemini.</small>';
-
-        $('visionTag').textContent = 'READY';
-
-    } catch {
-        toast('Could not read this image.');
-    }
+  try {
+    state.imageData = await optimizeImage(file);
+    $('imagePreview').src = state.imageData;
+    $('previewWrap').hidden = false;
+    $('dropZone').hidden = true;
+    $('analyzeBtn').disabled = false;
+    $('visionResult').textContent = 'Image ready for analysis. Select Analyze image.';
+    $('visionTag').textContent = 'READY';
+  } catch {
+    toast('Could not read this image.');
+  }
 });
-
-
-// ==========================================
-// 21. CLEAR UPLOADED IMAGE
-// ==========================================
 
 function clearImage() {
-    $('imageInput').value = '';
-
-    state.imageData = null;
-
-    $('previewWrap').hidden = true;
-    $('dropZone').hidden = false;
-
-    $('analyzeBtn').disabled = true;
-
-    $('visionTag').textContent = 'WAITING';
+  $('imageInput').value = '';
+  state.imageData = null;
+  $('previewWrap').hidden = true;
+  $('dropZone').hidden = false;
+  $('analyzeBtn').disabled = true;
+  $('visionTag').textContent = 'WAITING';
 }
-
 $('removeImageBtn').addEventListener('click', clearImage);
 
+async function analyzeImage(data, prompt, target, tag, speakButton) {
+  target.textContent = 'ANIVISION is examining the image…';
+  tag.textContent = 'ANALYZING';
+  speakButton.disabled = true;
 
-// ==========================================
-// 22. IMAGE ANALYSIS
-// ==========================================
-
-async function analyzeImage(
-    data,
-    prompt,
-    target,
-    tag,
-    speakButton
-) {
-    target.textContent = '';
-
-    const loading = document.createElement('p');
-
-    loading.textContent = 'Gemini is examining the image…';
-
-    target.appendChild(loading);
-
-    tag.textContent = 'ANALYZING';
-
-    speakButton.disabled = true;
-
-    try {
-        const r = await api('/api/vision', {
-            image: data,
-
-            prompt: prompt ||
-                'Identify the main object or objects visible in this image. Start with a short line: “Detected: [object name(s)]”. Then describe visible details.'
-        });
-
-        target.textContent = r.text;
-
-        tag.textContent = 'COMPLETE';
-
-        speakButton.disabled = false;
-
-        return r.text;
-
-    } catch (e) {
-        target.textContent = e.message;
-
-        tag.textContent = 'ERROR';
-
-        toast(e.message);
-
-        return '';
-    }
+  try {
+    const result = await api('/api/vision', {
+      image: data,
+      prompt: prompt || 'Identify the main object or objects visible in this image. Start with a short line: “Detected: [object name(s)]”. Then describe visible details.'
+    });
+    target.textContent = result.text;
+    tag.textContent = 'COMPLETE';
+    speakButton.disabled = false;
+    return result.text;
+  } catch (error) {
+    target.textContent = error.message;
+    tag.textContent = 'ERROR';
+    toast(error.message);
+    return '';
+  }
 }
-
-
-// ==========================================
-// 23. IMAGE ANALYSIS EVENT LISTENERS
-// ==========================================
 
 $('analyzeBtn').addEventListener('click', async () => {
-    if (!state.imageData) return;
-
-    const result = await analyzeImage(
-        state.imageData,
-        $('visionPrompt').value,
-        $('visionResult'),
-        $('visionTag'),
-        $('speakVisionBtn')
-    );
-
-    state.lastVision = result;
+  if (!state.imageData) return;
+  stopSpeech();
+  state.lastVision = await analyzeImage(
+    state.imageData,
+    $('visionPrompt').value,
+    $('visionResult'),
+    $('visionTag'),
+    $('speakVisionBtn')
+  );
 });
 
+$('speakVisionBtn').dataset.defaultLabel = '🔊 Listen to result';
 $('speakVisionBtn').addEventListener('click', () => {
-    speakText(state.lastVision);
+  speakText(state.lastVision, $('speakVisionBtn'));
 });
-
-
-// ==========================================
-// 24. START LIVE CAMERA
-// ==========================================
 
 async function startCamera() {
-    if (state.cameraStream) return;
+  if (state.cameraStream) return;
+  const video = $('cameraVideo');
+  $('cameraError').textContent = '';
 
-    try {
-        state.cameraStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: {
-                    ideal: 'environment'
-                }
-            },
+  if (!navigator.mediaDevices?.getUserMedia) {
+    $('cameraError').textContent = 'Camera needs HTTPS or localhost, and a supported browser.';
+    toast('Camera access is unavailable in this page context.');
+    return;
+  }
 
-            audio: false
-        });
+  $('startCameraBtn').disabled = true;
+  try {
+    const constraints = {
+      audio: false,
+      video: {
+        facingMode: { ideal: 'user' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    };
 
-        $('cameraVideo').srcObject = state.cameraStream;
+    state.cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = state.cameraStream;
+    video.muted = true;
+    await new Promise((resolve) => {
+      if (video.readyState >= 2) return resolve();
+      video.onloadedmetadata = resolve;
+    });
+    await video.play();
 
-        $('cameraPlaceholder').hidden = true;
-        $('cameraLive').hidden = false;
-
-        $('startCameraBtn').disabled = true;
-        $('captureBtn').disabled = false;
-        $('stopCameraBtn').disabled = false;
-
-        toast('Camera started. Point it at an object.');
-
-    } catch (e) {
-        toast(
-            e.name === 'NotAllowedError'
-                ? 'Camera permission denied. Allow camera access in your browser.'
-                : 'Could not start camera. Check that a camera is available.'
-        );
-    }
-}
-
-
-// ==========================================
-// 25. STOP LIVE CAMERA
-// ==========================================
-
-function stopCamera() {
+    $('cameraPlaceholder').hidden = true;
+    $('cameraLive').hidden = false;
+    $('captureBtn').disabled = false;
+    $('stopCameraBtn').disabled = false;
+    toast('Camera started.');
+  } catch (error) {
     if (state.cameraStream) {
-        state.cameraStream.getTracks().forEach((t) => {
-            t.stop();
-        });
-
-        state.cameraStream = null;
+      state.cameraStream.getTracks().forEach((track) => track.stop());
+      state.cameraStream = null;
     }
-
-    $('cameraVideo').srcObject = null;
-
+    video.srcObject = null;
     $('cameraPlaceholder').hidden = false;
     $('cameraLive').hidden = true;
-
     $('startCameraBtn').disabled = false;
-    $('captureBtn').disabled = true;
-    $('stopCameraBtn').disabled = true;
+
+    const messages = {
+      NotAllowedError: 'Camera permission was blocked. Allow camera access for this site.',
+      NotFoundError: 'No camera was found on this device.',
+      NotReadableError: 'The camera may be in use by another app. Close other apps using it.',
+      OverconstrainedError: 'The selected camera settings are not supported by this device.',
+      SecurityError: 'Camera access is blocked by the browser security settings.'
+    };
+    $('cameraError').textContent = messages[error.name] || `Camera error: ${error.message}`;
+    toast($('cameraError').textContent);
+  }
 }
 
-
-// ==========================================
-// 26. CAMERA EVENT LISTENERS
-// ==========================================
+function stopCamera() {
+  if (state.cameraStream) {
+    state.cameraStream.getTracks().forEach((track) => track.stop());
+    state.cameraStream = null;
+  }
+  const video = $('cameraVideo');
+  video.pause();
+  video.srcObject = null;
+  $('cameraPlaceholder').hidden = false;
+  $('cameraLive').hidden = true;
+  $('startCameraBtn').disabled = false;
+  $('captureBtn').disabled = true;
+  $('stopCameraBtn').disabled = true;
+}
 
 $('startCameraBtn').addEventListener('click', startCamera);
-
 $('stopCameraBtn').addEventListener('click', stopCamera);
 
-
-// ==========================================
-// 27. CAPTURE CAMERA IMAGE
-// ==========================================
-
 $('captureBtn').addEventListener('click', async () => {
-    if (!state.cameraStream) return;
+  const video = $('cameraVideo');
+  if (!state.cameraStream || video.readyState < 2 || !video.videoWidth) {
+    toast('Camera is not ready yet.');
+    return;
+  }
 
-    const v = $('cameraVideo');
+  stopSpeech();
+  const canvas = document.createElement('canvas');
+  const scale = Math.min(1, 1600 / video.videoWidth);
+  canvas.width = Math.round(video.videoWidth * scale);
+  canvas.height = Math.round(video.videoHeight * scale);
 
-    if (!v.videoWidth) {
-        toast('Camera is not ready yet.');
-        return;
-    }
+  const context = canvas.getContext('2d');
+  context.translate(canvas.width, 0);
+  context.scale(-1, 1);
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const canvas = document.createElement('canvas');
-
-    const scale = Math.min(
-        1,
-        1600 / v.videoWidth
-    );
-
-    canvas.width = Math.round(v.videoWidth * scale);
-    canvas.height = Math.round(v.videoHeight * scale);
-
-    canvas.getContext('2d').drawImage(
-        v,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    const data = canvas.toDataURL('image/jpeg', 0.82);
-
-    state.lastCamera = await analyzeImage(
-        data,
-        'Identify the main object or objects visible in this camera image. Start with “Detected: [object name(s)]”. Then describe the visible details.',
-        $('cameraResult'),
-        $('cameraTag'),
-        $('speakCameraBtn')
-    );
+  const imageData = canvas.toDataURL('image/jpeg', 0.82);
+  state.lastCamera = await analyzeImage(
+    imageData,
+    'Identify the main object or objects visible in this camera image. Start with “Detected: [object name(s)]”. Then describe the visible details.',
+    $('cameraResult'),
+    $('cameraTag'),
+    $('speakCameraBtn')
+  );
 });
 
-
-// ==========================================
-// 28. CAMERA SPEECH OUTPUT
-// ==========================================
-
+$('speakCameraBtn').dataset.defaultLabel = '🔊 Listen to result';
 $('speakCameraBtn').addEventListener('click', () => {
-    speakText(state.lastCamera);
+  speakText(state.lastCamera, $('speakCameraBtn'));
 });
-
-
-// ==========================================
-// 29. REFRESH BACKEND STATUS
-// ==========================================
 
 $('refreshStatusBtn').addEventListener('click', refreshStatus);
 
-
-// ==========================================
-// 30. CLEANUP ON PAGE CLOSE
-// ==========================================
-
-window.addEventListener('beforeunload', () => {
-    stopWake();
-    stopCamera();
+window.addEventListener('pagehide', () => {
+  stopSpeech();
+  stopWake();
+  stopCamera();
 });
-
-
-// ==========================================
-// 31. INITIALIZE APPLICATION
-// ==========================================
 
 refreshStatus();
