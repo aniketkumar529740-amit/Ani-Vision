@@ -71,273 +71,391 @@ function geminiEndpoint() {
 }
 
 // ==========================================
-// 2. ANIVISION PERSONAL KNOWLEDGE SYSTEM
+// 2. CLEAN TEXT SYSTEM
 // ==========================================
+
+function cleanAssistantText(value) {
+  if (typeof value !== 'string') return '';
+
+  return value
+    // Remove markdown code blocks.
+    .replace(/```[\s\S]*?```/g, ' ')
+
+    // Convert markdown links to their visible text.
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+
+    // Remove URLs.
+    .replace(/https?:\/\/\S+/gi, ' ')
+
+    // Remove markdown headings and quote markers.
+    .replace(/^\s{0,3}#{1,6}\s*/gm, '')
+    .replace(/^\s*>\s*/gm, '')
+
+    // Remove markdown bullet characters.
+    .replace(/^\s*[-+*]\s+/gm, '')
+    .replace(/^\s*\d+[.)]\s+/gm, '')
+
+    // Remove bold, italic and inline code markers.
+    .replace(/[*_`~]/g, '')
+
+    // Keep normal readable letters, numbers and punctuation.
+    .replace(/[^\p{L}\p{N}\s.,?!।]/gu, ' ')
+
+    // Remove excessive punctuation.
+    .replace(/[.,?!।]{2,}/g, '.')
+
+    // Normalize whitespace.
+    .replace(/\s+/g, ' ')
+    .trim()
+
+    // Make English text lowercase.
+    .toLocaleLowerCase('en-IN');
+}
+
+// ==========================================
+// 3. ANIVISION PROJECT INFORMATION
+// ==========================================
+
+const PROJECT_INFO = {
+
+  founder:
+    'aniket singh is the founder, maker and developer of anivision. he created this project with his team as a science exhibition project.',
+
+  biography:
+    'aniket singh is the founder and developer of anivision. he is associated with gyan bharati school, naveen nagar, nawada, bihar, india. he developed anivision with his team for a school science exhibition. the project reflects an interest in artificial intelligence, software development, computer vision and interactive technology.',
+
+  purpose:
+    'anivision was developed by aniket singh and his team as a science exhibition project for gyan bharati school, located in naveen nagar, nawada, bihar, india. the main purpose of this project is to demonstrate how artificial intelligence can be used in everyday life through an interactive personal assistant. it brings ai-powered conversations, voice interaction and image understanding together in one application. the project aims to make technology more interactive, accessible and easier to understand. it also demonstrates the practical connection between software development and artificial intelligence.',
+
+  identity:
+    'anivision is a personal ai voice and vision assistant developed by aniket singh and his team. it is a science exhibition project associated with gyan bharati school, naveen nagar, nawada, bihar, india. it combines ai conversations, voice interaction and image analysis.',
+
+  school:
+    'anivision was developed as a science exhibition project associated with gyan bharati school, naveen nagar, nawada, bihar, india.',
+
+  features:
+    'anivision includes ai-powered conversations, voice input, speech output, image analysis and live camera-based object recognition. its goal is to demonstrate how ai can understand questions and help users interact with visual information.'
+};
+
+// ==========================================
+// 4. PERSONAL KNOWLEDGE RECOGNITION
+// ==========================================
+
+function normalizeQuestion(message) {
+  return message
+    .toLocaleLowerCase('en-IN')
+    .replace(/[?!.,;:'"()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 function getProjectAnswer(message) {
 
-  const q = message
-    .toLowerCase()
-    .trim()
-    .replace(/[?!.,]/g, ' ')
-    .replace(/\s+/g, ' ');
+  const q = normalizeQuestion(message);
 
-  const matches = (patterns) =>
+  const has = (patterns) =>
     patterns.some(pattern => pattern.test(q));
 
+  const containsHindi = (...words) =>
+    words.some(word => q.includes(word));
+
   // ----------------------------------------
-  // FOUNDER NAME
+  // FOUNDER, CREATOR, MAKER AND DEVELOPER
   // ----------------------------------------
 
-  if (matches([
+  const founderQuestion = has([
     /\bfounder\b/,
     /\bcreator\b/,
+    /\bmaker\b/,
+    /\bdeveloper\b/,
     /\bwho made you\b/,
-    /\bwho created you\b/,
-    /\bwho built you\b/,
-    /\bwho developed you\b/,
-    /\bdeveloper of anivision\b/,
-    /\bowner of anivision\b/,
     /\bwho made anivision\b/,
+    /\bwho created you\b/,
     /\bwho created anivision\b/,
+    /\bwho built you\b/,
+    /\bwho built anivision\b/,
+    /\bwho developed you\b/,
+    /\bwho developed anivision\b/,
+    /\bdeveloper of anivision\b/,
+    /\bfounder of anivision\b/,
+    /\bcreator of anivision\b/,
+    /\bmaker of anivision\b/,
+    /\bwho is the founder\b/,
+    /\bwho is your founder\b/,
+    /\bwho is your developer\b/,
+    /\bwho is your maker\b/,
+    /\bwho is your creator\b/,
+    /\bwho owns anivision\b/,
+    /\bowner of anivision\b/,
+    /\bmade by whom\b/,
+    /\bcreated by whom\b/,
+    /\bdeveloped by whom\b/
+  ]) || containsHindi(
+    'किसने बनाया',
+    'किसने बनाया है',
+    'किसने विकसित किया',
+    'किसने बनाया था',
+    'संस्थापक कौन',
+    'डेवलपर कौन',
+    'निर्माता कौन',
+    'मेकर कौन',
+    'किसने बनाया तुम्हें',
+    'तुम्हें किसने बनाया'
+  ) || has([
     /founder kaun/,
+    /developer kaun/,
+    /maker kaun/,
     /kisne banaya/,
-    /developer/,
+    /kisne develop kiya/,
+    /kisne create kiya/,
+    /kisne banayi/,
+    /kaun banaya/,
+    /kaun hai tumhara founder/,
+    /kaun hai tumhara developer/,
+    /banane wala kaun/,
+    /banaya kisne/
+  ]);
 
-    /kaun banaya/
-  ])) {
-    return 'The founder and developer of ANI-VISION is Aniket Singh.';
+  if (founderQuestion) {
+    return PROJECT_INFO.biography;
   }
 
   // ----------------------------------------
-  // FOUNDER BIOGRAPHY
+  // TELL ME MORE ABOUT FOUNDER
   // ----------------------------------------
 
-  if (matches([
+  if (has([
     /\babout the founder\b/,
     /\btell me about the founder\b/,
+    /\btell me more about the founder\b/,
     /\bmore about the founder\b/,
     /\bfounder biography\b/,
     /\bfounder background\b/,
+    /\bfounder profile\b/,
     /\bwho is aniket singh\b/,
-    /\baniket singh profile\b/,
+    /\btell me about aniket\b/,
+    /\bmore about aniket\b/,
     /\baniket singh biography\b/,
+    /\baniket singh profile\b/
+  ]) || containsHindi(
+    'संस्थापक के बारे में',
+    'डेवलपर के बारे में',
+    'अनिकेत सिंह के बारे में',
+    'अनिकेत के बारे में'
+  ) || has([
     /founder ke bare mein/,
-    /founder ki information/
+    /founder ke baare mein/,
+    /founder ki information/,
+    /founder ki biography/,
+    /aniket ke bare mein/,
+    /aniket ke baare mein/
   ])) {
-    return 'Aniket Singh is the founder and developer of ANI-VISION 2.0. He is from Nawada district, Bihar, India, and studies at Gyan Bharati School, Naveen Nagar, Nawada. He developed this project as a school project through his interest in technology and software development.';
+    return PROJECT_INFO.biography;
   }
 
   // ----------------------------------------
-  // FOUNDER EDUCATION
+  // PROJECT PURPOSE AND REASON
   // ----------------------------------------
 
-  if (matches([
+  if (has([
+    /\bwhy was this project made\b/,
+    /\bwhy was anivision made\b/,
+    /\bwhy was anivision created\b/,
+    /\bwhy did you create this\b/,
+    /\bwhy did aniket create this\b/,
+    /\bwhy did aniket make anivision\b/,
+    /\bwhy this project\b/,
+    /\bwhat is the purpose\b/,
+    /\bwhat is the main purpose\b/,
+    /\bwhat is the aim\b/,
+    /\bwhat is the objective\b/,
+    /\bmain objective\b/,
+    /\bproject purpose\b/,
+    /\bproject reason\b/,
+    /\bwhy did you build this\b/,
+    /\bwhy have you built this\b/,
+    /\bwhy are you made\b/,
+    /\bscience exhibition\b/,
+    /\bschool exhibition\b/,
+    /\bwhy anivision\b/,
+    /\bwhat problem does anivision solve\b/
+  ]) || containsHindi(
+    'क्यों बनाया',
+    'क्यों बनाई',
+    'क्यों बनाया गया',
+    'क्यों बनाई गई',
+    'किस उद्देश्य से',
+    'क्या उद्देश्य है',
+    'मुख्य उद्देश्य',
+    'बनाने का कारण',
+    'प्रोजेक्ट क्यों',
+    'विज्ञान प्रदर्शनी',
+    'साइंस एग्जिबिशन',
+    'क्यों बनाया गया है'
+  ) || has([
+    /project kyun banaya/,
+    /project kyu banaya/,
+    /anivision kyun banaya/,
+    /anivision kyu banaya/,
+    /project ka maksad/,
+    /project ka uddeshya/,
+    /banane ka karan/,
+    /banane ki wajah/,
+    /kisliye banaya/,
+    /science exhibition ke liye/
+  ])) {
+    return PROJECT_INFO.purpose;
+  }
+
+  // ----------------------------------------
+  // FOUNDER EDUCATION AND SCHOOL
+  // ----------------------------------------
+
+  if (has([
     /\bfounder education\b/,
     /\bwhere does the founder study\b/,
     /\bwhich school does the founder attend\b/,
-    /\bfounder school\b/,
+    /\bwhich school does aniket attend\b/,
     /\baniket school\b/,
-    /\baniket studies\b/,
-    /\beducation of aniket\b/,
+    /\bschool of aniket\b/,
+    /\bfounder school\b/,
+    /\bwhich school made anivision\b/
+  ]) || containsHindi(
+    'किस स्कूल में',
+    'कौन से स्कूल',
+    'कौन सा स्कूल',
+    'किस विद्यालय',
+    'अनिकेत कहां पढ़ता',
+    'अनिकेत किस स्कूल'
+  ) || has([
     /founder kahan padhta/,
-    /founder ki education/
+    /founder kaha padhta/,
+    /founder ki education/,
+    /aniket kahan padhta/,
+    /aniket kaha padhta/,
+    /school ka naam/
   ])) {
-    return 'Aniket Singh, the founder of ANI-VISION 2.0, studies at Gyan Bharati School, Naveen Nagar, Nawada, Bihar.';
-  }
-
-  // ----------------------------------------
-  // FOUNDER LOCATION
-  // ----------------------------------------
-
-  if (matches([
-    /\bwhere is the founder from\b/,
-    /\bwhere does the founder live\b/,
-    /\bfounder location\b/,
-    /\bfounder hometown\b/,
-    /\baniket location\b/,
-    /\baniket singh from where\b/,
-    /founder kahan rehta/,
-    /founder kahan se hai/
-  ])) {
-    return 'The founder, Aniket Singh, is from Nawada district in Bihar, India.';
-  }
-
-  // ----------------------------------------
-  // FOUNDER DEVELOPMENT JOURNEY
-  // ----------------------------------------
-
-  if (matches([
-    /\bfounder journey\b/,
-    /\bdeveloper journey\b/,
-    /\bhow did the founder learn coding\b/,
-    /\bhow did aniket learn development\b/,
-    /\bhow was anivision developed\b/,
-    /\bfounder hard work\b/,
-    /\baniket development journey\b/,
-    /coding kaise sikha/,
-    /development kaise sikha/,
-    /founder ki journey/
-  ])) {
-    return 'Aniket Singh developed his skills step by step through continuous learning and hard work. He first learned frontend development, then moved towards backend development, and gradually learned full-stack development. He also learned Git and GitHub to understand version control and software project management. ANI-VISION 2.0 is one of his school projects.';
-  }
-
-  // ----------------------------------------
-  // FRONTEND KNOWLEDGE
-  // ----------------------------------------
-
-  if (matches([
-    /\bfrontend\b/,
-    /\bfront end\b/,
-    /\bfrontend development\b/,
-    /\bfrontend skills\b/
-  ])) {
-    return 'The founder, Aniket Singh, learned frontend development as the first stage of his software development journey. Frontend development focuses on the visual interface and user experience of a website or application.';
-  }
-
-  // ----------------------------------------
-  // BACKEND KNOWLEDGE
-  // ----------------------------------------
-
-  if (matches([
-    /\bbackend\b/,
-    /\bback end\b/,
-    /\bbackend development\b/,
-    /\bbackend skills\b/
-  ])) {
-    return 'After learning frontend development, Aniket Singh moved towards backend development. Backend development handles server-side logic, API communication and application functionality.';
-  }
-
-  // ----------------------------------------
-  // FULL STACK KNOWLEDGE
-  // ----------------------------------------
-
-  if (matches([
-    /\bfull stack\b/,
-    /\bfullstack\b/,
-    /\bfull stack developer\b/,
-    /\bfull stack development\b/
-  ])) {
-    return 'Aniket Singh has learned both frontend and backend development and has progressed towards full-stack development. Full-stack development combines the user interface with server-side functionality.';
-  }
-
-  // ----------------------------------------
-  // GIT AND GITHUB
-  // ----------------------------------------
-
-  if (matches([
-    /\bgit\b/,
-    /\bgithub\b/,
-    /\bversion control\b/
-  ])) {
-    return 'The founder, Aniket Singh, has also learned Git and GitHub. These technologies help developers track code changes, manage project versions and collaborate on software projects.';
-  }
-
-  // ----------------------------------------
-  // SCHOOL INFORMATION
-  // ----------------------------------------
-
-  if (matches([
-    /\bschool\b/,
-    /\bwhich school\b/,
-    /\bschool name\b/,
-    /\bschool project\b/,
-    /\bproject belongs to which school\b/,
-    /kis school/,
-    /kaun sa school/
-  ])) {
-    return 'ANI-VISION 2.0 is a school project of Gyan Bharati School, Naveen Nagar, Nawada, Bihar, India.';
+    return PROJECT_INFO.school;
   }
 
   // ----------------------------------------
   // PROJECT LOCATION
   // ----------------------------------------
 
-  if (matches([
-    /\bnawada\b/,
-    /\bnaveen nagar\b/,
-    /\bbihar\b/,
-    /\bindia\b/,
+  if (has([
+    /\bwhere is anivision from\b/,
+    /\bwhere was anivision developed\b/,
+    /\bwhere is the project located\b/,
+    /\bwhere is the school located\b/,
     /\bproject location\b/,
-    /\bwhere is this project from\b/,
-    /\bwhere is the school located\b/
+    /\bwhich city is anivision from\b/,
+    /\bwhere is naveen nagar\b/,
+    /\bwhere is nawada\b/,
+    /\bwhere is bihar\b/
+  ]) || containsHindi(
+    'कहां स्थित',
+    'कहाँ स्थित',
+    'कहां बना',
+    'कहाँ बना',
+    'किस जगह',
+    'किस स्थान',
+    'किस जिले',
+    'नवादा कहां',
+    'नवादा कहाँ',
+    'नवीन नगर कहां',
+    'नवीन नगर कहाँ'
+  ) || has([
+    /project kahan ka hai/,
+    /project kaha ka hai/,
+    /anivision kahan ka hai/,
+    /anivision kaha ka hai/,
+    /nawada kahan hai/,
+    /nawada kaha hai/,
+    /naveen nagar kahan hai/,
+    /school kahan hai/
   ])) {
-    return 'ANI-VISION 2.0 is associated with Gyan Bharati School, Naveen Nagar, Nawada district, Bihar, India.';
-  }
-
-  // ----------------------------------------
-  // PROJECT AIM AND PURPOSE
-  // ----------------------------------------
-
-  if (matches([
-    /\baim\b/,
-    /\bpurpose\b/,
-    /\bobjective\b/,
-    /\bgoal\b/,
-    /\bwhy was this project made\b/,
-    /\bwhy was anivision created\b/,
-    /\bwhy did you create this\b/,
-    /\bwhy this project\b/,
-    /\bwhat is the aim\b/,
-    /\bwhat is the purpose\b/,
-    /project kyun banaya/,
-    /project ka maksad/,
-    /project ka uddeshya/
-  ])) {
-    return 'The aim of ANI-VISION 2.0 is to demonstrate the practical use of Artificial Intelligence through an interactive AI workspace. It combines AI-powered conversations and image understanding in one application. It was developed as a school project of Gyan Bharati School, Naveen Nagar, Nawada, Bihar.';
+    return PROJECT_INFO.school;
   }
 
   // ----------------------------------------
   // PROJECT IDENTITY
   // ----------------------------------------
 
-  if (matches([
+  if (has([
     /\bwhat is anivision\b/,
-    /\bwhat is anivision 2\.0\b/,
+    /\bwhat is ani vision\b/,
     /\babout anivision\b/,
     /\babout this project\b/,
     /\bdescribe anivision\b/,
     /\bintroduce anivision\b/,
     /\bexplain this project\b/,
-    /anivision kya hai/
+    /\bwhat are you\b/,
+    /\bwho are you\b/,
+    /\bintroduce yourself\b/
+  ]) || containsHindi(
+    'अनिविजन क्या है',
+    'अनिविज़न क्या है',
+    'यह प्रोजेक्ट क्या है',
+    'तुम कौन हो',
+    'अपना परिचय'
+  ) || has([
+    /anivision kya hai/,
+    /anivision kya hota hai/,
+    /ye project kya hai/,
+    /yeh project kya hai/
   ])) {
-    return 'ANI-VISION 2.0 is a personal AI workspace and school project created by Aniket Singh. It combines an AI chat assistant with image understanding capabilities. The project is associated with Gyan Bharati School, Naveen Nagar, Nawada, Bihar, India.';
+    return PROJECT_INFO.identity;
   }
 
   // ----------------------------------------
   // PROJECT FEATURES
   // ----------------------------------------
 
-  if (matches([
+  if (has([
     /\bfeatures\b/,
     /\bwhat can anivision do\b/,
     /\bwhat does anivision do\b/,
     /\bcapabilities\b/,
     /\bfunctions of anivision\b/,
-    /anivision ke features/
+    /\bwhat are your features\b/,
+    /\bwhat can you do\b/
+  ]) || containsHindi(
+    'क्या कर सकते हो',
+    'क्या कर सकता है',
+    'फीचर्स बताओ',
+    'क्या विशेषताएं',
+    'क्या क्या कर सकते'
+  ) || has([
+    /anivision ke features/,
+    /anivision kya kar sakta/,
+    /anivision kya kya karta/
   ])) {
-    return 'ANI-VISION 2.0 currently includes AI-powered chat and image analysis. Users can communicate with the AI assistant and upload images to understand their visible contents.';
+    return PROJECT_INFO.features;
   }
 
   // ----------------------------------------
-  // PROJECT CREATOR AND SCHOOL COMBINATION
+  // FOUNDER NAME ONLY
   // ----------------------------------------
 
-  if (matches([
-    /\bwho developed this school project\b/,
-    /\bwho made this school project\b/,
-    /\bproject developer\b/,
-    /\bproject created by\b/
-  ])) {
-    return 'ANI-VISION 2.0 was created by Aniket Singh as a school project associated with Gyan Bharati School, Naveen Nagar, Nawada, Bihar, India.';
+  if (has([
+    /\baniket singh\b/,
+    /\bfounder name\b/,
+    /\byour founder name\b/
+  ]) || containsHindi(
+    'अनिकेत सिंह',
+    'संस्थापक का नाम',
+    'डेवलपर का नाम'
+  )) {
+    return PROJECT_INFO.founder;
   }
 
-  // No matching knowledge: use Gemini
+  // No matching personal knowledge.
   return null;
 }
 
 // ==========================================
-// 3. GEMINI API REQUEST
+// 5. GEMINI API REQUEST
 // ==========================================
 
 async function callGemini(contents, systemInstruction) {
@@ -366,6 +484,7 @@ async function callGemini(contents, systemInstruction) {
         },
 
         body: JSON.stringify({
+
           systemInstruction: {
             parts: [{ text: systemInstruction }]
           },
@@ -373,8 +492,10 @@ async function callGemini(contents, systemInstruction) {
           contents,
 
           generationConfig: {
-            maxOutputTokens: 1400
+            maxOutputTokens: 1400,
+            temperature: 0.5
           }
+
         }),
 
         signal: controller.signal
@@ -414,14 +535,14 @@ async function callGemini(contents, systemInstruction) {
         );
       }
 
-      const text = (
+      const rawText = (
         payload?.candidates?.[0]?.content?.parts || []
       )
         .map(part => part.text || '')
         .join('\n')
         .trim();
 
-      if (!text) {
+      if (!rawText) {
         throw Object.assign(
           new Error('Gemini returned an empty response.'),
           { status: 502 }
@@ -430,7 +551,7 @@ async function callGemini(contents, systemInstruction) {
 
       console.log('[GEMINI SUCCESS] Response received.');
 
-      return text;
+      return cleanAssistantText(rawText);
 
     } catch (error) {
 
@@ -450,7 +571,7 @@ async function callGemini(contents, systemInstruction) {
 }
 
 // ==========================================
-// 4. HEALTH CHECK
+// 6. HEALTH CHECK
 // ==========================================
 
 app.get('/api/health', (req, res) => {
@@ -463,7 +584,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // ==========================================
-// 5. CONFIGURATION CHECK
+// 7. CONFIGURATION CHECK
 // ==========================================
 
 app.get('/api/config', (req, res) => {
@@ -475,7 +596,7 @@ app.get('/api/config', (req, res) => {
 });
 
 // ==========================================
-// 6. AI CHAT + CUSTOM KNOWLEDGE
+// 8. AI CHAT + CUSTOM KNOWLEDGE
 // ==========================================
 
 app.post('/api/chat', async (req, res, next) => {
@@ -493,7 +614,7 @@ app.post('/api/chat', async (req, res, next) => {
       });
     }
 
-    // First check our custom knowledge
+    // Check ANIVISION's own knowledge first.
     const projectAnswer = getProjectAnswer(message);
 
     if (projectAnswer) {
@@ -501,63 +622,92 @@ app.post('/api/chat', async (req, res, next) => {
       console.log('[ANIVISION KNOWLEDGE] Custom answer found.');
 
       return res.json({
-        text: projectAnswer,
+        text: cleanAssistantText(projectAnswer),
         source: 'anivision_knowledge'
       });
 
     }
 
-    // If no matching information, use Gemini
+    // Unknown questions are sent to Gemini.
     const history = Array.isArray(req.body.history)
       ? req.body.history.slice(-10)
       : [];
 
     const contents = history
+
       .filter(item =>
         item &&
         ['user', 'assistant', 'model'].includes(item.role) &&
         typeof item.content === 'string'
       )
+
       .map(item => ({
+
         role: item.role === 'assistant' ? 'model' : item.role,
 
         parts: [
           { text: item.content.slice(0, 2500) }
         ]
+
       }));
 
     contents.push({
+
       role: 'user',
 
       parts: [
         { text: message }
       ]
+
     });
 
     const instruction =
+
       'You are ANIVISION, a helpful personal AI assistant. ' +
-      'Reply in the same language as the user (Hindi, Hinglish or English). ' +
-      'Be clear, useful and honest. ' +
+
+      'Reply in the same language as the user, including Hindi, Hinglish or English. ' +
+
+      'IMPORTANT TEXT RULES: ' +
+
+      'Write all English words in lowercase only. ' +
+
+      'Never use uppercase English letters. ' +
+
+      'Do not use markdown formatting, headings, hashtags, asterisks, decorative symbols, emojis or unnecessary special characters. ' +
+
+      'Use simple natural sentences and normal spaces. ' +
+
+      'Use as few punctuation marks as possible. ' +
+
+      'Do not spell out individual uppercase letters. ' +
+
+      'Make every answer easy for a text-to-speech voice to read aloud. ' +
+
       'Do not invent personal information about the founder. ' +
-      'If you do not know something, clearly say you do not know.';
+
+      'If you do not know something, clearly say you do not know. ' +
+
+      'For questions about ANIVISION, its founder, developer, creator, maker or purpose, use only the established project information. ' +
+
+      'The founder and developer is Aniket Singh. ' +
+
+      'ANIVISION was developed by Aniket Singh with his team as a science exhibition project associated with Gyan Bharati School, Naveen Nagar, Nawada, Bihar, India.';
 
     const text = await callGemini(contents, instruction);
 
     res.json({
-      text,
+      text: cleanAssistantText(text),
       source: 'gemini'
     });
 
   } catch (error) {
-
     next(error);
-
   }
 
 });
 
 // ==========================================
-// 7. IMAGE VISION
+// 9. IMAGE VISION
 // ==========================================
 
 app.post('/api/vision', async (req, res, next) => {
@@ -593,18 +743,34 @@ app.post('/api/vision', async (req, res, next) => {
         : '';
 
     const instruction =
+
       'You are ANIVISION, a careful visual AI assistant. ' +
+
       'Identify visible objects accurately. ' +
-      'Start with Detected: followed by the main object names. ' +
+
       'Explain visible details and answer the user prompt. ' +
+
       'Never guess when an object is unclear. ' +
-      'Only describe what is visible.';
+
+      'Only describe what is visible. ' +
+
+      'Write all English words in lowercase. ' +
+
+      'Never use uppercase English letters. ' +
+
+      'Do not use markdown, asterisks, hashtags, emojis or unnecessary symbols. ' +
+
+      'Use simple sentences suitable for text-to-speech reading. ' +
+
+      'Use minimum punctuation.';
 
     const contents = [
+
       {
         role: 'user',
 
         parts: [
+
           {
             text: prompt ||
               'Identify the main objects in this image and describe them.'
@@ -616,24 +782,27 @@ app.post('/api/vision', async (req, res, next) => {
               data: match[2]
             }
           }
+
         ]
+
       }
+
     ];
 
     const text = await callGemini(contents, instruction);
 
-    res.json({ text });
+    res.json({
+      text: cleanAssistantText(text)
+    });
 
   } catch (error) {
-
     next(error);
-
   }
 
 });
 
 // ==========================================
-// 8. FRONTEND
+// 10. FRONTEND
 // ==========================================
 
 app.use(
@@ -651,7 +820,7 @@ app.get('*', (req, res) => {
 });
 
 // ==========================================
-// 9. GLOBAL ERROR HANDLER
+// 11. GLOBAL ERROR HANDLER
 // ==========================================
 
 app.use((error, req, res, next) => {
@@ -678,7 +847,7 @@ app.use((error, req, res, next) => {
 });
 
 // ==========================================
-// 10. START SERVER
+// 12. START SERVER
 // ==========================================
 
 app.listen(PORT, '0.0.0.0', () => {
@@ -690,6 +859,9 @@ app.listen(PORT, '0.0.0.0', () => {
     `Gemini configured: ${configured() ? 'YES' : 'NO'}`
   );
   console.log('Custom Knowledge System: ACTIVE');
+  console.log('Lowercase Text System: ACTIVE');
+  console.log('Clean Response System: ACTIVE');
+  console.log('Founder Knowledge: ACTIVE');
   console.log('================================\n');
 
 });
